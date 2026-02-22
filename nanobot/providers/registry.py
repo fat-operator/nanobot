@@ -181,6 +181,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         strip_model_prefix=True,
         model_overrides=(),
         supports_prompt_caching=True,
+        stream=True,
     ),
 
     # === Standard providers (matched by model-name keywords) ===============
