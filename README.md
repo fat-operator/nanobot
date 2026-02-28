@@ -16,7 +16,7 @@
 
 ⚡️ Delivers core agent functionality in just **~4,000** lines of code — **99% smaller** than Clawdbot's 430k+ lines.
 
-📏 Real-time line count: **3,966 lines** (run `bash core_agent_lines.sh` to verify anytime)
+📏 Real-time line count: **3,927 lines** (run `bash core_agent_lines.sh` to verify anytime)
 
 ## 📢 News
 
@@ -420,7 +420,7 @@ Uses **WebSocket** long connection — no public IP required.
 **1. Create a Feishu bot**
 - Visit [Feishu Open Platform](https://open.feishu.cn/app)
 - Create a new app → Enable **Bot** capability
-- **Permissions**: Add `im:message` (send messages)
+- **Permissions**: Add `im:message` (send messages) and `im:message.p2p_msg:readonly` (receive messages)
 - **Events**: Add `im.message.receive_v1` (receive messages)
   - Select **Long Connection** mode (requires running nanobot first to establish connection)
 - Get **App ID** and **App Secret** from "Credentials & Basic Info"
