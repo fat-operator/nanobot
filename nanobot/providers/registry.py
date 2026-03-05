@@ -372,6 +372,8 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         default_api_base="https://api.venice.ai/api/v1",
         strip_model_prefix=True,
         model_overrides=(),
+        supports_prompt_caching=True
+        
     ),
 
     # === Local deployment (matched by config key, NOT by api_base) =========
