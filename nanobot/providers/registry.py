@@ -332,7 +332,11 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         model_overrides=(),
     ),
 
+<<<<<<< HEAD
     # Venice.ai 
+=======
+    # Venice.ai
+>>>>>>> dbd703e (Resolved merge conflict)
     # Uses OpenAI-compatible API at api.venice.ai/api/v1
     ProviderSpec(
         name="venice",
@@ -349,8 +353,11 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         default_api_base="https://api.venice.ai/api/v1",
         strip_model_prefix=True,
         model_overrides=(),
+<<<<<<< HEAD
         supports_prompt_caching=True
         
+=======
+>>>>>>> dbd703e (Resolved merge conflict)
     ),
 
     # === Local deployment (matched by config key, NOT by api_base) =========
