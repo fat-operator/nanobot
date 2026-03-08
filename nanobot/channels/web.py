@@ -243,6 +243,9 @@ class WebChannel(BaseChannel):
                     file_data = msg.get("data", "")
                     try:
                         raw_bytes = base64.b64decode(file_data)
+                        max_bytes = self.config.max_upload_size_mb * 1024 * 1024
+                        if len(raw_bytes) > max_bytes:
+                            raise ValueError(f"File exceeds {self.config.max_upload_size_mb}MB limit")
                         upload_dir = self._get_upload_dir()
                         safe_name = filename.replace("/", "_").replace("\\", "_")
                         dest = (upload_dir / f"{uuid.uuid4().hex[:8]}_{safe_name}").resolve()
@@ -402,11 +405,14 @@ class WebChannel(BaseChannel):
             "label": label,
             "status": status,
         })
+        dead = set()
         for ws in list(clients):
             try:
                 await ws.send(payload)
             except Exception:
-                pass
+                dead.add(ws)
+        if dead and chat_id in self._clients:
+            self._clients[chat_id] -= dead
 
     @staticmethod
     async def _ws_send(ws, data: dict) -> None:
