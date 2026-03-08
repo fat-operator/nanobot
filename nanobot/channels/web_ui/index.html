@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>nanobot</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#1a1a2e;--bg2:#16213e;--bg3:#0f3460;
+  --fg:#e0e0e0;--fg2:#a0a0b0;--accent:#00d2ff;--accent2:#7b2ff7;
+  --user-bg:#0f3460;--bot-bg:#222244;
+  --sidebar-w:280px;--input-bg:#222244;--border:#333355;
+  --progress-fg:#666688;
+}
+html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg)}
+
+/* Layout */
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{
+  width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--bg2);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;
+  transition:transform .25s ease;z-index:20;
+}
+.sidebar-header{padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.sidebar-header h2{font-size:14px;color:var(--fg2);text-transform:uppercase;letter-spacing:1px}
+.btn-new{
+  background:var(--accent);color:#000;border:none;border-radius:6px;
+  padding:6px 12px;cursor:pointer;font-size:13px;font-weight:600;
+}
+.btn-new:hover{opacity:.85}
+.session-list{flex:1;overflow-y:auto;padding:8px}
+.session-item{
+  padding:10px 12px;border-radius:8px;cursor:pointer;margin-bottom:4px;
+  font-size:13px;color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.session-item:hover{background:var(--bg3)}
+.session-item.active{background:var(--bg3);color:var(--fg)}
+.session-time{font-size:11px;color:var(--fg2);opacity:.6;display:block;margin-top:2px}
+
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.header{
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;background:var(--bg2);
+}
+.hamburger{
+  display:none;background:none;border:none;color:var(--fg);font-size:22px;
+  cursor:pointer;padding:4px 8px;
+}
+.header-title{font-size:18px;font-weight:700;color:var(--accent);flex:1}
+.toggle-progress{
+  font-size:12px;color:var(--fg2);cursor:pointer;user-select:none;
+  display:flex;align-items:center;gap:6px;
+}
+.toggle-progress input{accent-color:var(--accent)}
+
+/* Chat area */
+.chat-area{
+  flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;
+  scroll-behavior:smooth;
+}
+.msg{max-width:80%;padding:10px 14px;border-radius:12px;line-height:1.5;font-size:14px;word-wrap:break-word;position:relative}
+.msg-user{align-self:flex-end;background:var(--user-bg);border-bottom-right-radius:4px}
+.msg-bot{align-self:flex-start;background:var(--bot-bg);border-bottom-left-radius:4px}
+.msg-progress,.msg-tool{
+  align-self:flex-start;background:transparent;color:var(--progress-fg);
+  font-size:12px;padding:2px 14px;opacity:.7;
+}
+.msg-tool{font-style:italic}
+.hide-progress .msg-progress,.hide-progress .msg-tool{display:none}
+
+/* Markdown rendering */
+.msg pre{background:#111;padding:8px 12px;border-radius:6px;overflow-x:auto;margin:6px 0;font-size:13px}
+.msg code{background:#111;padding:1px 4px;border-radius:3px;font-size:13px;font-family:'Fira Code',monospace}
+.msg pre code{background:none;padding:0}
+.msg a{color:var(--accent);text-decoration:underline}
+
+/* Input area */
+.input-area{
+  padding:12px 16px;border-top:1px solid var(--border);background:var(--bg2);
+  display:flex;align-items:flex-end;gap:8px;
+}
+.input-area textarea{
+  flex:1;background:var(--input-bg);border:1px solid var(--border);border-radius:10px;
+  color:var(--fg);padding:10px 14px;font-size:14px;font-family:inherit;
+  resize:none;outline:none;max-height:150px;min-height:42px;line-height:1.4;
+}
+.input-area textarea:focus{border-color:var(--accent)}
+.input-area textarea::placeholder{color:var(--fg2)}
+.btn-send,.btn-attach{
+  background:none;border:none;color:var(--accent);cursor:pointer;
+  font-size:20px;padding:8px;border-radius:8px;flex-shrink:0;
+}
+.btn-send:hover,.btn-attach:hover{background:rgba(0,210,255,.1)}
+.btn-send:disabled{opacity:.3;cursor:default}
+
+/* Reconnect banner */
+.reconnect-banner{
+  display:none;background:#cc3300;color:#fff;text-align:center;
+  padding:6px;font-size:13px;
+}
+.reconnect-banner.visible{display:block}
+
+/* Drop zone */
+.drop-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,210,255,.15);
+  z-index:100;align-items:center;justify-content:center;
+  font-size:24px;color:var(--accent);border:3px dashed var(--accent);
+}
+.drop-overlay.visible{display:flex}
+
+/* Mobile */
+@media(max-width:768px){
+  .sidebar{position:fixed;top:0;left:0;bottom:0;transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .hamburger{display:block}
+  .msg{max-width:90%}
+  .sidebar-backdrop{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:19;
+  }
+  .sidebar-backdrop.visible{display:block}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>Sessions</h2>
+      <button class="btn-new" id="btnNew">+ New</button>
+    </div>
+    <div class="session-list" id="sessionList"></div>
+  </div>
+  <div class="sidebar-backdrop" id="backdrop"></div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="header">
+      <button class="hamburger" id="hamburger">&#9776;</button>
+      <div class="header-title">nanobot</div>
+      <label class="toggle-progress">
+        <input type="checkbox" id="toggleProgress" checked> progress
+      </label>
+    </div>
+    <div class="reconnect-banner" id="reconnectBanner">Reconnecting...</div>
+    <div class="chat-area" id="chatArea"></div>
+    <div class="input-area">
+      <button class="btn-attach" id="btnAttach" title="Attach file">&#128206;</button>
+      <textarea id="inputBox" rows="1" placeholder="Type a message..."></textarea>
+      <button class="btn-send" id="btnSend" title="Send" disabled>&#10148;</button>
+    </div>
+  </div>
+</div>
+
+<div class="drop-overlay" id="dropOverlay">Drop files here</div>
+<input type="file" id="fileInput" style="display:none" multiple>
+
+<script>
+(function(){
+  // State
+  let sessionKey = localStorage.getItem('nb_session') || ('web:' + crypto.randomUUID());
+  localStorage.setItem('nb_session', sessionKey);
+
+  let ws = null;
+  let reconnectDelay = 1000;
+  const maxReconnectDelay = 30000;
+
+  // Elements
+  const chatArea = document.getElementById('chatArea');
+  const inputBox = document.getElementById('inputBox');
+  const btnSend = document.getElementById('btnSend');
+  const btnAttach = document.getElementById('btnAttach');
+  const btnNew = document.getElementById('btnNew');
+  const fileInput = document.getElementById('fileInput');
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('backdrop');
+  const hamburger = document.getElementById('hamburger');
+  const sessionList = document.getElementById('sessionList');
+  const toggleProgress = document.getElementById('toggleProgress');
+  const reconnectBanner = document.getElementById('reconnectBanner');
+  const dropOverlay = document.getElementById('dropOverlay');
+
+  // Progress toggle
+  const savedProg = localStorage.getItem('nb_progress');
+  if (savedProg !== null) toggleProgress.checked = savedProg === '1';
+  applyProgressToggle();
+
+  toggleProgress.addEventListener('change', () => {
+    localStorage.setItem('nb_progress', toggleProgress.checked ? '1' : '0');
+    applyProgressToggle();
+  });
+
+  function applyProgressToggle() {
+    chatArea.classList.toggle('hide-progress', !toggleProgress.checked);
+  }
+
+  // Sidebar
+  hamburger.addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+    backdrop.classList.toggle('visible');
+    if (sidebar.classList.contains('open')) loadSessions();
+  });
+  backdrop.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    backdrop.classList.remove('visible');
+  });
+
+  // New session
+  btnNew.addEventListener('click', () => {
+    wsSend({type: 'new_session'});
+    sidebar.classList.remove('open');
+    backdrop.classList.remove('visible');
+  });
+
+  // Input handling
+  inputBox.addEventListener('input', () => {
+    btnSend.disabled = !inputBox.value.trim();
+    autoGrow();
+  });
+  inputBox.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  btnSend.addEventListener('click', sendMessage);
+
+  function autoGrow() {
+    inputBox.style.height = 'auto';
+    inputBox.style.height = Math.min(inputBox.scrollHeight, 150) + 'px';
+  }
+
+  function sendMessage() {
+    const text = inputBox.value.trim();
+    if (!text) return;
+    appendMsg('user', text);
+    wsSend({type: 'chat', content: text, session_key: sessionKey, media: []});
+    inputBox.value = '';
+    btnSend.disabled = true;
+    autoGrow();
+  }
+
+  // File handling
+  btnAttach.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    handleFiles(fileInput.files);
+    fileInput.value = '';
+  });
+
+  // Drag and drop
+  let dragCounter = 0;
+  document.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; dropOverlay.classList.add('visible'); });
+  document.addEventListener('dragleave', (e) => { e.preventDefault(); dragCounter--; if (dragCounter <= 0) { dragCounter = 0; dropOverlay.classList.remove('visible'); } });
+  document.addEventListener('dragover', (e) => e.preventDefault());
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    dropOverlay.classList.remove('visible');
+    if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+  });
+
+  function handleFiles(files) {
+    for (const file of files) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1];
+        wsSend({type: 'upload', filename: file.name, data: base64});
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  // Messages
+  function appendMsg(role, content, type) {
+    const div = document.createElement('div');
+    let cls = 'msg ';
+    if (role === 'user') cls += 'msg-user';
+    else if (type === 'progress') cls += 'msg-bot msg-progress';
+    else if (type === 'tool_hint') cls += 'msg-bot msg-tool';
+    else cls += 'msg-bot';
+    div.className = cls;
+    div.innerHTML = renderMarkdown(content);
+    chatArea.appendChild(div);
+    chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+  // Simple markdown renderer
+  function renderMarkdown(text) {
+    if (!text) return '';
+    let html = escapeHtml(text);
+    // Code blocks
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+    html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Bold
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Italic
+    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    // Links
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    // Line breaks
+    html = html.replace(/\n/g, '<br>');
+    return html;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Sessions
+  function loadSessions() {
+    wsSend({type: 'sessions_list'});
+  }
+
+  function renderSessions(data) {
+    sessionList.innerHTML = '';
+    if (!data || !data.length) {
+      sessionList.innerHTML = '<div style="padding:12px;color:var(--fg2);font-size:13px">No sessions yet</div>';
+      return;
+    }
+    data.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'session-item' + (s.key === sessionKey ? ' active' : '');
+      const label = s.key.replace('web:', '').substring(0, 12) + '...';
+      const time = s.updated_at ? new Date(s.updated_at).toLocaleString() : '';
+      div.innerHTML = label + '<span class="session-time">' + time + '</span>';
+      div.addEventListener('click', () => {
+        sessionKey = s.key;
+        localStorage.setItem('nb_session', sessionKey);
+        wsSend({type: 'session_switch', session_key: sessionKey});
+        sidebar.classList.remove('open');
+        backdrop.classList.remove('visible');
+      });
+      sessionList.appendChild(div);
+    });
+  }
+
+  function loadHistory(messages, key) {
+    chatArea.innerHTML = '';
+    sessionKey = key;
+    localStorage.setItem('nb_session', key);
+    if (messages && messages.length) {
+      messages.forEach(m => appendMsg(m.role, m.content));
+    }
+  }
+
+  // WebSocket
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(proto + '//' + location.host);
+
+    ws.onopen = () => {
+      reconnectDelay = 1000;
+      reconnectBanner.classList.remove('visible');
+      // Load current session history
+      wsSend({type: 'session_switch', session_key: sessionKey});
+    };
+
+    ws.onmessage = (e) => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
+
+      switch (msg.type) {
+        case 'chat':
+          appendMsg('bot', msg.content);
+          break;
+        case 'progress':
+          appendMsg('bot', msg.content, 'progress');
+          break;
+        case 'tool_hint':
+          appendMsg('bot', msg.content, 'tool_hint');
+          break;
+        case 'sessions_list':
+          renderSessions(msg.data);
+          break;
+        case 'history':
+          loadHistory(msg.messages, msg.session_key);
+          break;
+        case 'new_session':
+          chatArea.innerHTML = '';
+          sessionKey = msg.session_key;
+          localStorage.setItem('nb_session', sessionKey);
+          break;
+        case 'upload_ok':
+          appendMsg('user', '[file: ' + msg.path + ']');
+          break;
+        case 'error':
+          appendMsg('bot', 'Error: ' + msg.content);
+          break;
+      }
+    };
+
+    ws.onclose = () => {
+      reconnectBanner.classList.add('visible');
+      setTimeout(() => {
+        reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay);
+        connect();
+      }, reconnectDelay);
+    };
+
+    ws.onerror = () => {};
+  }
+
+  function wsSend(data) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(data));
+    }
+  }
+
+  connect();
+})();
+</script>
+</body>
+</html>

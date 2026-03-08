@@ -81,6 +81,7 @@ include = [
     "nanobot/templates/**/*.md",
     "nanobot/skills/**/*.md",
     "nanobot/skills/**/*.sh",
+    "nanobot/channels/web_ui/**/*.html",
 ]
 
 [tool.hatch.build.targets.sdist]

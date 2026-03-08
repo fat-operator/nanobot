@@ -23,9 +23,10 @@ class ChannelManager:
     - Route outbound messages
     """
 
-    def __init__(self, config: Config, bus: MessageBus):
+    def __init__(self, config: Config, bus: MessageBus, session_manager=None):
         self.config = config
         self.bus = bus
+        self._session_manager = session_manager
         self.channels: dict[str, BaseChannel] = {}
         self._dispatch_task: asyncio.Task | None = None
 
@@ -149,6 +150,18 @@ class ChannelManager:
             except ImportError as e:
                 logger.warning("Matrix channel not available: {}", e)
 
+        # Web UI channel
+        if self.config.channels.web.enabled:
+            try:
+                from nanobot.channels.web import WebChannel
+                self.channels["web"] = WebChannel(
+                    self.config.channels.web, self.bus,
+                    session_manager=self._session_manager,
+                )
+                logger.info("Web UI channel enabled")
+            except ImportError as e:
+                logger.warning("Web UI channel not available: {}", e)
+
         self._validate_allow_from()
 
     def _validate_allow_from(self) -> None:
@@ -215,7 +228,7 @@ class ChannelManager:
                     timeout=1.0
                 )
 
-                if msg.metadata.get("_progress"):
+                if msg.metadata.get("_progress") and msg.channel != "web":
                     if msg.metadata.get("_tool_hint") and not self.config.channels.send_tool_hints:
                         continue
                     if not msg.metadata.get("_tool_hint") and not self.config.channels.send_progress:

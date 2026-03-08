@@ -201,6 +201,16 @@ class QQConfig(Base):
 
 
 
+class WebConfig(Base):
+    """Web UI channel configuration."""
+
+    enabled: bool = False
+    host: str = "0.0.0.0"
+    port: int = 18800
+    allow_from: list[str] = Field(default_factory=lambda: ["*"])
+    max_upload_size_mb: int = 20
+
+
 class ChannelsConfig(Base):
     """Configuration for chat channels."""
 
@@ -216,6 +226,7 @@ class ChannelsConfig(Base):
     slack: SlackConfig = Field(default_factory=SlackConfig)
     qq: QQConfig = Field(default_factory=QQConfig)
     matrix: MatrixConfig = Field(default_factory=MatrixConfig)
+    web: WebConfig = Field(default_factory=WebConfig)
 
 
 class AgentDefaults(Base):
