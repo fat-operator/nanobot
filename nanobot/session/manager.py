@@ -178,6 +178,20 @@ class SessionManager:
 
         self._cache[session.key] = session
 
+    def delete(self, key: str) -> bool:
+        """Delete a session from cache and disk. Returns True if it existed."""
+        self._cache.pop(key, None)
+        path = self._get_session_path(key)
+        if path.exists():
+            try:
+                path.unlink()
+                logger.info("Deleted session {}", key)
+                return True
+            except Exception as e:
+                logger.warning("Failed to delete session {}: {}", key, e)
+                return False
+        return False
+
     def invalidate(self, key: str) -> None:
         """Remove a session from the in-memory cache."""
         self._cache.pop(key, None)

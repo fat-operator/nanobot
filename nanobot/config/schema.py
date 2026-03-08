@@ -209,6 +209,7 @@ class WebConfig(Base):
     port: int = 18800
     allow_from: list[str] = Field(default_factory=lambda: ["*"])
     max_upload_size_mb: int = 20
+    visible_channels: list[str] = Field(default_factory=list)
 
 
 class ChannelsConfig(Base):

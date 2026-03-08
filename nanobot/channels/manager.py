@@ -23,10 +23,11 @@ class ChannelManager:
     - Route outbound messages
     """
 
-    def __init__(self, config: Config, bus: MessageBus, session_manager=None):
+    def __init__(self, config: Config, bus: MessageBus, session_manager=None, subagent_manager=None):
         self.config = config
         self.bus = bus
         self._session_manager = session_manager
+        self._subagent_manager = subagent_manager
         self.channels: dict[str, BaseChannel] = {}
         self._dispatch_task: asyncio.Task | None = None
 
@@ -157,6 +158,7 @@ class ChannelManager:
                 self.channels["web"] = WebChannel(
                     self.config.channels.web, self.bus,
                     session_manager=self._session_manager,
+                    subagent_manager=self._subagent_manager,
                 )
                 logger.info("Web UI channel enabled")
             except ImportError as e:

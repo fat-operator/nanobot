@@ -4,7 +4,7 @@ import asyncio
 import json
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from loguru import logger
 
@@ -49,6 +49,8 @@ class SubagentManager:
         self.restrict_to_workspace = restrict_to_workspace
         self._running_tasks: dict[str, asyncio.Task[None]] = {}
         self._session_tasks: dict[str, set[str]] = {}  # session_key -> {task_id, ...}
+        self._task_meta: dict[str, dict[str, Any]] = {}  # task_id -> {label, status, session_key, steps}
+        self._on_state_change: Callable[[str, str, str, str], Any] | None = None  # (session_key, task_id, label, status)
 
     async def spawn(
         self,
@@ -64,18 +66,22 @@ class SubagentManager:
         origin = {"channel": origin_channel, "chat_id": origin_chat_id}
 
         bg_task = asyncio.create_task(
-            self._run_subagent(task_id, task, display_label, origin)
+            self._run_subagent(task_id, task, display_label, origin, session_key)
         )
         self._running_tasks[task_id] = bg_task
         if session_key:
             self._session_tasks.setdefault(session_key, set()).add(task_id)
+        self._task_meta[task_id] = {
+            "label": display_label,
+            "status": "running",
+            "session_key": session_key or "",
+        }
+        self._fire_state_change(session_key or "", task_id, display_label, "running")
 
         def _cleanup(_: asyncio.Task) -> None:
             self._running_tasks.pop(task_id, None)
-            if session_key and (ids := self._session_tasks.get(session_key)):
-                ids.discard(task_id)
-                if not ids:
-                    del self._session_tasks[session_key]
+            # Keep task_id in _session_tasks and _task_meta so get_tasks()
+            # can still return completed/errored tasks after they finish.
 
         bg_task.add_done_callback(_cleanup)
 
@@ -88,9 +94,11 @@ class SubagentManager:
         task: str,
         label: str,
         origin: dict[str, str],
+        session_key: str | None = None,
     ) -> None:
         """Execute the subagent task and announce the result."""
         logger.info("Subagent [{}] starting task: {}", task_id, label)
+        steps: list[dict[str, str]] = []
 
         try:
             # Build subagent tools (no message tool, no spawn tool)
@@ -133,6 +141,10 @@ class SubagentManager:
                 )
 
                 if response.has_tool_calls:
+                    # Capture assistant thought
+                    if response.content:
+                        steps.append({"type": "thought", "content": response.content[:500]})
+
                     # Add assistant message with tool calls
                     tool_call_dicts = [
                         {
@@ -151,11 +163,13 @@ class SubagentManager:
                         "tool_calls": tool_call_dicts,
                     })
 
-                    # Execute tools
+                    # Capture tool calls and execute tools
                     for tool_call in response.tool_calls:
                         args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
+                        steps.append({"type": "tool", "name": tool_call.name, "args": args_str[:200]})
                         logger.debug("Subagent [{}] executing: {} with arguments: {}", task_id, tool_call.name, args_str)
                         result = await tools.execute(tool_call.name, tool_call.arguments)
+                        steps.append({"type": "result", "content": result[:500]})
                         messages.append({
                             "role": "tool",
                             "tool_call_id": tool_call.id,
@@ -163,6 +177,8 @@ class SubagentManager:
                             "content": result,
                         })
                 else:
+                    if response.content:
+                        steps.append({"type": "thought", "content": response.content[:500]})
                     final_result = response.content
                     break
 
@@ -170,11 +186,19 @@ class SubagentManager:
                 final_result = "Task completed but no final response was generated."
 
             logger.info("Subagent [{}] completed successfully", task_id)
+            if task_id in self._task_meta:
+                self._task_meta[task_id]["steps"] = steps
+                self._task_meta[task_id]["status"] = "done"
+            self._fire_state_change(session_key or "", task_id, label, "done")
             await self._announce_result(task_id, label, task, final_result, origin, "ok")
 
         except Exception as e:
             error_msg = f"Error: {str(e)}"
             logger.error("Subagent [{}] failed: {}", task_id, e)
+            if task_id in self._task_meta:
+                self._task_meta[task_id]["steps"] = steps
+                self._task_meta[task_id]["status"] = "error"
+            self._fire_state_change(session_key or "", task_id, label, "error")
             await self._announce_result(task_id, label, task, error_msg, origin, "error")
 
     async def _announce_result(
@@ -233,14 +257,45 @@ Stay focused on the assigned task. Your final response will be reported back to 
     
     async def cancel_by_session(self, session_key: str) -> int:
         """Cancel all subagents for the given session. Returns count cancelled."""
-        tasks = [self._running_tasks[tid] for tid in self._session_tasks.get(session_key, [])
-                 if tid in self._running_tasks and not self._running_tasks[tid].done()]
-        for t in tasks:
+        task_ids = self._session_tasks.get(session_key, set())
+        running = [(tid, self._running_tasks[tid]) for tid in task_ids
+                   if tid in self._running_tasks and not self._running_tasks[tid].done()]
+        for _, t in running:
             t.cancel()
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-        return len(tasks)
+        if running:
+            await asyncio.gather(*(t for _, t in running), return_exceptions=True)
+        # Mark cancelled tasks
+        for tid, _ in running:
+            if tid in self._task_meta:
+                self._task_meta[tid]["status"] = "error"
+            self._fire_state_change(session_key, tid, self._task_meta.get(tid, {}).get("label", ""), "error")
+        return len(running)
 
     def get_running_count(self) -> int:
         """Return the number of currently running subagents."""
         return len(self._running_tasks)
+
+    def get_task_detail(self, task_id: str) -> dict[str, Any]:
+        """Return detail for a specific task."""
+        return self._task_meta.get(task_id, {})
+
+    def get_tasks(self, session_key: str) -> list[dict[str, str]]:
+        """Return subagent tasks for a given session key."""
+        task_ids = self._session_tasks.get(session_key, set())
+        result = []
+        for tid in task_ids:
+            meta = self._task_meta.get(tid)
+            if meta:
+                result.append({"id": tid, "label": meta["label"], "status": meta["status"]})
+        return result
+
+    def set_on_state_change(self, callback: Callable[[str, str, str, str], Any]) -> None:
+        """Set callback for subagent state changes: (session_key, task_id, label, status)."""
+        self._on_state_change = callback
+
+    def _fire_state_change(self, session_key: str, task_id: str, label: str, status: str) -> None:
+        if self._on_state_change:
+            try:
+                self._on_state_change(session_key, task_id, label, status)
+            except Exception as e:
+                logger.warning("Subagent state-change callback error: {}", e)

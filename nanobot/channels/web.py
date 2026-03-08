@@ -6,7 +6,7 @@ import asyncio
 import json
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from loguru import logger
 
@@ -23,10 +23,11 @@ class WebChannel(BaseChannel):
 
     name = "web"
 
-    def __init__(self, config: WebConfig, bus: MessageBus, *, session_manager=None):
+    def __init__(self, config: WebConfig, bus: MessageBus, *, session_manager=None, subagent_manager=None):
         super().__init__(config, bus)
         self.config: WebConfig = config
         self._session_manager = session_manager
+        self._subagent_manager = subagent_manager
         # chat_id -> set of websocket connections
         self._clients: dict[str, set] = {}
         self._server = None
@@ -42,20 +43,44 @@ class WebChannel(BaseChannel):
         self._running = True
         self._load_index_html()
 
-        self._server = await websockets.serve(
-            self._ws_handler,
-            self.config.host,
-            self.config.port,
-            process_request=self._process_http,
-        )
-        logger.info("Web UI listening on http://{}:{}", self.config.host, self.config.port)
-        await asyncio.Future()  # run forever
+        backoff = 1
+        max_backoff = 60
+        while self._running:
+            try:
+                self._server = await websockets.serve(
+                    self._ws_handler,
+                    self.config.host,
+                    self.config.port,
+                    process_request=self._process_http,
+                )
+                logger.info("Web UI listening on http://{}:{}", self.config.host, self.config.port)
+                backoff = 1  # reset on success
+                await asyncio.Future()  # run forever
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                if not self._running:
+                    break
+                logger.error("Web UI server crashed: {}. Retrying in {}s...", e, backoff)
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, max_backoff)
 
     async def stop(self) -> None:
         self._running = False
+        # Close all websocket connections
+        for clients in self._clients.values():
+            for ws in list(clients):
+                try:
+                    await asyncio.wait_for(ws.close(), timeout=2.0)
+                except Exception:
+                    pass
+        self._clients.clear()
         if self._server:
             self._server.close()
-            await self._server.wait_closed()
+            try:
+                await asyncio.wait_for(self._server.wait_closed(), timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.warning("Web UI server close timed out")
 
     # ------------------------------------------------------------------
     # HTTP handler (process_request hook)
@@ -195,6 +220,26 @@ class WebChannel(BaseChannel):
                         "session_key": f"web:{chat_id}",
                     })
 
+                elif msg_type == "session_delete":
+                    del_key = msg.get("session_key", "")
+                    deleted = False
+                    if del_key and self._session_manager:
+                        # Cancel any running subagents for this session
+                        if self._subagent_manager:
+                            try:
+                                await self._subagent_manager.cancel_by_session(del_key)
+                            except Exception:
+                                pass
+                        deleted = self._session_manager.delete(del_key)
+                    await self._ws_send(websocket, {
+                        "type": "session_deleted",
+                        "session_key": del_key,
+                        "deleted": deleted,
+                    })
+                    # Push updated sessions list
+                    data = self._get_sessions_list()
+                    await self._ws_send(websocket, {"type": "sessions_list", "data": data})
+
                 elif msg_type == "upload":
                     # Handle base64 file upload via WebSocket
                     import base64
@@ -204,7 +249,9 @@ class WebChannel(BaseChannel):
                         raw_bytes = base64.b64decode(file_data)
                         upload_dir = self._get_upload_dir()
                         safe_name = filename.replace("/", "_").replace("\\", "_")
-                        dest = upload_dir / f"{uuid.uuid4().hex[:8]}_{safe_name}"
+                        dest = (upload_dir / f"{uuid.uuid4().hex[:8]}_{safe_name}").resolve()
+                        if not str(dest).startswith(str(upload_dir.resolve())):
+                            raise ValueError("Invalid filename")
                         dest.write_bytes(raw_bytes)
                         await self._ws_send(websocket, {
                             "type": "upload_ok",
@@ -216,6 +263,22 @@ class WebChannel(BaseChannel):
                             "type": "error",
                             "content": f"Upload failed: {e}",
                         })
+
+                elif msg_type == "subagents":
+                    sk = msg.get("session_key", "")
+                    tasks = self._get_subagent_tasks(sk)
+                    await self._ws_send(websocket, {
+                        "type": "subagents",
+                        "session_key": sk,
+                        "tasks": tasks,
+                    })
+
+                elif msg_type == "subagent_detail":
+                    detail = self._get_subagent_detail(msg.get("task_id", ""))
+                    await self._ws_send(websocket, {
+                        "type": "subagent_detail",
+                        **detail,
+                    })
 
                 else:
                     await self._ws_send(websocket, {"type": "error", "content": f"Unknown type: {msg_type}"})
@@ -262,7 +325,21 @@ class WebChannel(BaseChannel):
                 await ws.send(json.dumps(payload))
             except Exception:
                 dead.add(ws)
-        clients -= dead
+        if dead and chat_id in self._clients:
+            self._clients[chat_id] -= dead
+
+        # After a non-progress message, push updated sessions list so new
+        # sessions appear in the sidebar immediately.
+        if ws_type == "chat":
+            sessions_payload = json.dumps({
+                "type": "sessions_list",
+                "data": self._get_sessions_list(),
+            })
+            for ws in list(clients - dead):
+                try:
+                    await ws.send(sessions_payload)
+                except Exception:
+                    pass
 
     # ------------------------------------------------------------------
     # Helpers
@@ -279,16 +356,26 @@ class WebChannel(BaseChannel):
         if not self._session_manager:
             return []
         all_sessions = self._session_manager.list_sessions()
-        return [
-            {"key": s["key"], "created_at": s.get("created_at"), "updated_at": s.get("updated_at")}
-            for s in all_sessions
-            if s.get("key", "").startswith("web:")
-        ]
+        internal_prefixes = ("cron:", "heartbeat", "system:")
+        visible_channels = getattr(self.config, 'visible_channels', None)
+        sessions = []
+        for s in all_sessions:
+            key = s.get("key", "")
+            if key.startswith(internal_prefixes):
+                continue
+            if visible_channels and not any(key.startswith(p + ":") for p in visible_channels):
+                continue
+            sessions.append({"key": key, "created_at": s.get("created_at"), "updated_at": s.get("updated_at")})
+        return sessions
 
     def _get_session_history(self, session_key: str) -> list[dict[str, Any]]:
         if not self._session_manager:
             return []
-        session = self._session_manager.get_or_create(session_key)
+        session = self._session_manager._cache.get(session_key)
+        if session is None:
+            session = self._session_manager._load(session_key)
+        if session is None:
+            return []
         messages = []
         for m in session.messages:
             role = m.get("role", "")
@@ -304,6 +391,41 @@ class WebChannel(BaseChannel):
             upload_dir = Path.home() / ".nanobot" / "workspace" / "uploads"
         upload_dir.mkdir(parents=True, exist_ok=True)
         return upload_dir
+
+    def _get_subagent_detail(self, task_id: str) -> dict[str, Any]:
+        if not self._subagent_manager:
+            return {"task_id": task_id, "label": "", "status": "", "steps": []}
+        meta = self._subagent_manager.get_task_detail(task_id)
+        return {
+            "task_id": task_id,
+            "label": meta.get("label", ""),
+            "status": meta.get("status", ""),
+            "steps": meta.get("steps", []),
+        }
+
+    def _get_subagent_tasks(self, session_key: str) -> list[dict[str, Any]]:
+        if not self._subagent_manager:
+            return []
+        return self._subagent_manager.get_tasks(session_key)
+
+    async def notify_subagent_update(
+        self, session_key: str, task_id: str, label: str, status: str,
+    ) -> None:
+        """Push a subagent state change to all connected clients for this session."""
+        chat_id = session_key.split(":", 1)[-1] if ":" in session_key else session_key
+        clients = self._clients.get(chat_id, set())
+        payload = json.dumps({
+            "type": "subagent_update",
+            "session_key": session_key,
+            "task_id": task_id,
+            "label": label,
+            "status": status,
+        })
+        for ws in list(clients):
+            try:
+                await ws.send(payload)
+            except Exception:
+                pass
 
     @staticmethod
     async def _ws_send(ws, data: dict) -> None:

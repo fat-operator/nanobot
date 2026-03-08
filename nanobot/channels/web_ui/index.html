@@ -6,12 +6,39 @@
 <title>nanobot</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#1a1a2e;--bg2:#16213e;--bg3:#0f3460;
-  --fg:#e0e0e0;--fg2:#a0a0b0;--accent:#00d2ff;--accent2:#7b2ff7;
-  --user-bg:#0f3460;--bot-bg:#222244;
-  --sidebar-w:280px;--input-bg:#222244;--border:#333355;
-  --progress-fg:#666688;
+:root,
+[data-theme="light"]{
+  --bg:#F4F1EA;--bg2:#EAE5D8;--bg3:#DED8C8;
+  --fg:#2D2B28;--fg2:#6B6560;--accent:#DA7756;--accent2:#C4653E;
+  --user-bg:#E8DFD0;--bot-bg:#FFFFFF;
+  --sidebar-w:280px;--input-bg:#FFFFFF;--border:#D5CFC2;
+  --progress-fg:#9B9488;
+  --code-bg:#F0EDE6;--code-fg:#2D2B28;
+  --shadow:rgba(0,0,0,.06);--hover-bg:rgba(218,119,86,.1);
+  --drop-bg:rgba(218,119,86,.12);--banner-bg:#C4653E;
+  --status-run:#D9960A;--status-done:#2D8659;--status-err:#C4653E;
+}
+[data-theme="dark"]{
+  --bg:#2B2A27;--bg2:#35332F;--bg3:#403D38;
+  --fg:#E8E4DD;--fg2:#A39E94;--accent:#DA7756;--accent2:#C4653E;
+  --user-bg:#3D3A34;--bot-bg:#35332F;
+  --input-bg:#2B2A27;--border:#4A463F;
+  --progress-fg:#7A756C;
+  --code-bg:#23221F;--code-fg:#E8E4DD;
+  --shadow:rgba(0,0,0,.2);--hover-bg:rgba(218,119,86,.15);
+  --drop-bg:rgba(218,119,86,.15);--banner-bg:#C4653E;
+  --status-run:#E5A820;--status-done:#3DB874;--status-err:#E06B4A;
+}
+[data-theme="oled"]{
+  --bg:#000000;--bg2:#0D0D0D;--bg3:#1A1A1A;
+  --fg:#E8E4DD;--fg2:#8A857C;--accent:#DA7756;--accent2:#C4653E;
+  --user-bg:#1A1714;--bot-bg:#0D0D0D;
+  --input-bg:#0D0D0D;--border:#2A2622;
+  --progress-fg:#5C5850;
+  --code-bg:#0D0D0D;--code-fg:#E8E4DD;
+  --shadow:rgba(0,0,0,.4);--hover-bg:rgba(218,119,86,.18);
+  --drop-bg:rgba(218,119,86,.15);--banner-bg:#C4653E;
+  --status-run:#E5A820;--status-done:#3DB874;--status-err:#E06B4A;
 }
 html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg)}
 
@@ -25,7 +52,7 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
 .sidebar-header{padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .sidebar-header h2{font-size:14px;color:var(--fg2);text-transform:uppercase;letter-spacing:1px}
 .btn-new{
-  background:var(--accent);color:#000;border:none;border-radius:6px;
+  background:var(--accent);color:#fff;border:none;border-radius:6px;
   padding:6px 12px;cursor:pointer;font-size:13px;font-weight:600;
 }
 .btn-new:hover{opacity:.85}
@@ -33,10 +60,42 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
 .session-item{
   padding:10px 12px;border-radius:8px;cursor:pointer;margin-bottom:4px;
   font-size:13px;color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  position:relative;padding-right:28px;
 }
 .session-item:hover{background:var(--bg3)}
 .session-item.active{background:var(--bg3);color:var(--fg)}
+.btn-delete{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--fg2);cursor:pointer;
+  font-size:14px;padding:2px 4px;border-radius:4px;opacity:0;transition:opacity .15s;
+  line-height:1;
+}
+.session-item:hover .btn-delete{opacity:.6}
+.btn-delete:hover{opacity:1!important;color:var(--status-err)}
 .session-time{font-size:11px;color:var(--fg2);opacity:.6;display:block;margin-top:2px}
+.subagent-item{
+  padding:4px 12px 4px 28px;font-size:12px;color:var(--fg2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;
+}
+.subagent-status{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.subagent-status.running{background:var(--status-run);animation:pulse 1.5s ease-in-out infinite}
+.subagent-status.done{background:var(--fg2);opacity:.5}
+.subagent-status.error{background:var(--status-err)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.subagent-item.done{opacity:.6}
+.subagent-item:hover{background:var(--bg3)}
+.channel-badge{
+  display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;
+  padding:1px 6px;border-radius:8px;color:#fff;margin-right:6px;vertical-align:middle;
+  font-weight:600;background:var(--fg2);
+}
+.badge-web{background:#4A90D9}
+.badge-telegram{background:#0088cc}
+.badge-whatsapp{background:#25D366}
+.badge-email{background:#D44638}
+.badge-discord{background:#5865F2}
+.badge-slack{background:#4A154B}
+.badge-matrix{background:#0DBD8B}
 
 .main{flex:1;display:flex;flex-direction:column;min-width:0}
 .header{
@@ -60,8 +119,8 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
   scroll-behavior:smooth;
 }
 .msg{max-width:80%;padding:10px 14px;border-radius:12px;line-height:1.5;font-size:14px;word-wrap:break-word;position:relative}
-.msg-user{align-self:flex-end;background:var(--user-bg);border-bottom-right-radius:4px}
-.msg-bot{align-self:flex-start;background:var(--bot-bg);border-bottom-left-radius:4px}
+.msg-user{align-self:flex-end;background:var(--user-bg);border-bottom-right-radius:4px;color:var(--fg)}
+.msg-bot{align-self:flex-start;background:var(--bot-bg);border-bottom-left-radius:4px;box-shadow:0 1px 3px var(--shadow);border:1px solid var(--border)}
 .msg-progress,.msg-tool{
   align-self:flex-start;background:transparent;color:var(--progress-fg);
   font-size:12px;padding:2px 14px;opacity:.7;
@@ -70,8 +129,8 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
 .hide-progress .msg-progress,.hide-progress .msg-tool{display:none}
 
 /* Markdown rendering */
-.msg pre{background:#111;padding:8px 12px;border-radius:6px;overflow-x:auto;margin:6px 0;font-size:13px}
-.msg code{background:#111;padding:1px 4px;border-radius:3px;font-size:13px;font-family:'Fira Code',monospace}
+.msg pre{background:var(--code-bg);padding:8px 12px;border-radius:6px;overflow-x:auto;margin:6px 0;font-size:13px;color:var(--code-fg)}
+.msg code{background:var(--code-bg);padding:1px 4px;border-radius:3px;font-size:13px;font-family:'Fira Code',monospace;color:var(--code-fg)}
 .msg pre code{background:none;padding:0}
 .msg a{color:var(--accent);text-decoration:underline}
 
@@ -91,23 +150,36 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
   background:none;border:none;color:var(--accent);cursor:pointer;
   font-size:20px;padding:8px;border-radius:8px;flex-shrink:0;
 }
-.btn-send:hover,.btn-attach:hover{background:rgba(0,210,255,.1)}
+.btn-send:hover,.btn-attach:hover{background:var(--hover-bg)}
 .btn-send:disabled{opacity:.3;cursor:default}
 
 /* Reconnect banner */
 .reconnect-banner{
-  display:none;background:#cc3300;color:#fff;text-align:center;
+  display:none;background:var(--banner-bg);color:#fff;text-align:center;
   padding:6px;font-size:13px;
 }
 .reconnect-banner.visible{display:block}
 
 /* Drop zone */
 .drop-overlay{
-  display:none;position:fixed;inset:0;background:rgba(0,210,255,.15);
+  display:none;position:fixed;inset:0;background:var(--drop-bg);
   z-index:100;align-items:center;justify-content:center;
   font-size:24px;color:var(--accent);border:3px dashed var(--accent);
 }
 .drop-overlay.visible{display:flex}
+
+/* Theme toggle */
+.sidebar-footer{
+  padding:12px 16px;border-top:1px solid var(--border);
+}
+.btn-theme{
+  display:flex;align-items:center;gap:8px;width:100%;
+  background:none;border:1px solid var(--border);border-radius:8px;
+  color:var(--fg2);cursor:pointer;padding:8px 12px;font-size:13px;
+  font-family:inherit;transition:background .15s;
+}
+.btn-theme:hover{background:var(--bg3)}
+.btn-theme svg{flex-shrink:0;width:16px;height:16px;fill:currentColor}
 
 /* Mobile */
 @media(max-width:768px){
@@ -131,6 +203,12 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
       <button class="btn-new" id="btnNew">+ New</button>
     </div>
     <div class="session-list" id="sessionList"></div>
+    <div class="sidebar-footer">
+      <button class="btn-theme" id="btnTheme" title="Change theme">
+        <svg id="themeIcon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 16V5a7 7 0 1 1 0 14z"/></svg>
+        <span id="themeLabel">Light</span>
+      </button>
+    </div>
   </div>
   <div class="sidebar-backdrop" id="backdrop"></div>
 
@@ -159,12 +237,21 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
 <script>
 (function(){
   // State
-  let sessionKey = localStorage.getItem('nb_session') || ('web:' + crypto.randomUUID());
+  function uuidv4() {
+    // Fallback for non-secure contexts where crypto.randomUUID is unavailable
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+      (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))).toString(16)
+    );
+  }
+  let sessionKey = localStorage.getItem('nb_session') || ('web:' + uuidv4());
   localStorage.setItem('nb_session', sessionKey);
 
   let ws = null;
   let reconnectDelay = 1000;
   const maxReconnectDelay = 30000;
+  let lastSessionsData = null;
+  let pendingMedia = [];
 
   // Elements
   const chatArea = document.getElementById('chatArea');
@@ -180,6 +267,34 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
   const toggleProgress = document.getElementById('toggleProgress');
   const reconnectBanner = document.getElementById('reconnectBanner');
   const dropOverlay = document.getElementById('dropOverlay');
+
+  // Theme
+  const btnTheme = document.getElementById('btnTheme');
+  const themeLabel = document.getElementById('themeLabel');
+  const themeIcon = document.getElementById('themeIcon');
+  const themes = ['light', 'dark', 'oled'];
+  const themeLabels = {light: 'Light', dark: 'Dark', oled: 'OLED'};
+  const themeIcons = {
+    light: '<path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-3a1 1 0 0 0 1-1V1a1 1 0 0 0-2 0v2a1 1 0 0 0 1 1zm0 18a1 1 0 0 0-1 1v2a1 1 0 0 0 2 0v-2a1 1 0 0 0-1-1zm9-9h2a1 1 0 0 0 0-2h-2a1 1 0 0 0 0 2zM2 11H0a1 1 0 0 0 0 2h2a1 1 0 0 0 0-2zm16.36-5.64a1 1 0 0 0 .7-.29l1.42-1.42a1 1 0 0 0-1.42-1.41l-1.41 1.41a1 1 0 0 0 .71 1.71zM5.64 17.64a1 1 0 0 0-.7.29l-1.42 1.42a1 1 0 1 0 1.42 1.41l1.41-1.41a1 1 0 0 0-.71-1.71zm12.72 0a1 1 0 0 0-.71 1.71l1.41 1.41a1 1 0 0 0 1.42-1.41l-1.42-1.42a1 1 0 0 0-.7-.29zM5.64 6.36a1 1 0 0 0 .71-1.71L4.94 3.24a1 1 0 0 0-1.42 1.41l1.42 1.42a1 1 0 0 0 .7.29z"/>',
+    dark: '<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>',
+    oled: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm0-14a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>',
+  };
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    themeLabel.textContent = themeLabels[theme];
+    themeIcon.innerHTML = themeIcons[theme];
+    localStorage.setItem('nb_theme', theme);
+  }
+
+  const savedTheme = localStorage.getItem('nb_theme') || 'light';
+  applyTheme(savedTheme);
+
+  btnTheme.addEventListener('click', () => {
+    const cur = document.documentElement.getAttribute('data-theme') || 'light';
+    const next = themes[(themes.indexOf(cur) + 1) % themes.length];
+    applyTheme(next);
+  });
 
   // Progress toggle
   const savedProg = localStorage.getItem('nb_progress');
@@ -234,8 +349,17 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
   function sendMessage() {
     const text = inputBox.value.trim();
     if (!text) return;
+    // Handle client-side commands
+    if (text === '/new') {
+      inputBox.value = '';
+      btnSend.disabled = true;
+      autoGrow();
+      wsSend({type: 'new_session'});
+      return;
+    }
     appendMsg('user', text);
-    wsSend({type: 'chat', content: text, session_key: sessionKey, media: []});
+    wsSend({type: 'chat', content: text, session_key: sessionKey, media: pendingMedia});
+    pendingMedia = [];
     inputBox.value = '';
     btnSend.disabled = true;
     autoGrow();
@@ -273,6 +397,7 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
 
   // Messages
   function appendMsg(role, content, type) {
+    const atBottom = chatArea.scrollHeight - chatArea.scrollTop - chatArea.clientHeight < 80;
     const div = document.createElement('div');
     let cls = 'msg ';
     if (role === 'user') cls += 'msg-user';
@@ -282,7 +407,7 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
     div.className = cls;
     div.innerHTML = renderMarkdown(content);
     chatArea.appendChild(div);
-    chatArea.scrollTop = chatArea.scrollHeight;
+    if (atBottom || role === 'user') chatArea.scrollTop = chatArea.scrollHeight;
   }
 
   // Simple markdown renderer
@@ -298,8 +423,13 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     // Italic
     html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    // Links
-    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    // Links (only allow safe protocols)
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(match, text, url) {
+      if (/^(https?:|mailto:)/i.test(url)) {
+        return '<a href="' + url + '" target="_blank" rel="noopener">' + text + '</a>';
+      }
+      return text;
+    });
     // Line breaks
     html = html.replace(/\n/g, '<br>');
     return html;
@@ -315,6 +445,7 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
   }
 
   function renderSessions(data) {
+    lastSessionsData = data;
     sessionList.innerHTML = '';
     if (!data || !data.length) {
       sessionList.innerHTML = '<div style="padding:12px;color:var(--fg2);font-size:13px">No sessions yet</div>';
@@ -323,23 +454,75 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
     data.forEach(s => {
       const div = document.createElement('div');
       div.className = 'session-item' + (s.key === sessionKey ? ' active' : '');
-      const label = s.key.replace('web:', '').substring(0, 12) + '...';
+      div.setAttribute('data-session-key', s.key);
+      const channel = (s.key.indexOf(':') !== -1 ? s.key.split(':')[0] : 'web').replace(/[^a-zA-Z0-9_-]/g, '');
+      const idPart = s.key.indexOf(':') !== -1 ? s.key.split(':').slice(1).join(':') : s.key;
+      const label = idPart.substring(0, 12) + (idPart.length > 12 ? '...' : '');
+      const badgeClass = 'channel-badge badge-' + channel;
       const time = s.updated_at ? new Date(s.updated_at).toLocaleString() : '';
-      div.innerHTML = label + '<span class="session-time">' + time + '</span>';
+      div.innerHTML = '<span class="' + badgeClass + '">' + escapeHtml(channel) + '</span>' + escapeHtml(label) + '<span class="session-time">' + time + '</span><button class="btn-delete" title="Delete session">&times;</button>';
+      div.querySelector('.btn-delete').addEventListener('click', (e) => {
+        e.stopPropagation();
+        wsSend({type: 'session_delete', session_key: s.key});
+      });
       div.addEventListener('click', () => {
         sessionKey = s.key;
         localStorage.setItem('nb_session', sessionKey);
         wsSend({type: 'session_switch', session_key: sessionKey});
+        renderSessions(lastSessionsData);
         sidebar.classList.remove('open');
         backdrop.classList.remove('visible');
       });
       sessionList.appendChild(div);
+      // Render subagent tasks if cached (inserted right after parent div)
+      renderSubagentItems(s.key);
+      // Request subagent list from server
+      wsSend({type: 'subagents', session_key: s.key});
+    });
+  }
+
+  // Subagent tasks cache: session_key -> [{id, label, status}]
+  const subagentCache = {};
+
+  function renderSubagentItems(sk) {
+    const tasks = subagentCache[sk];
+    if (!tasks || !tasks.length) return;
+    // Find the parent session div to insert after
+    const parentDiv = sessionList.querySelector('[data-session-key="' + CSS.escape(sk) + '"]');
+    if (!parentDiv) return;
+    // Find insertion point: after parentDiv and any existing subagent items for this session
+    let insertBefore = parentDiv.nextSibling;
+    while (insertBefore && insertBefore.classList && insertBefore.classList.contains('subagent-item')
+           && insertBefore.getAttribute('data-parent') === sk) {
+      insertBefore = insertBefore.nextSibling;
+    }
+    tasks.forEach(t => {
+      const existingId = 'sub-' + t.id;
+      const existing = document.getElementById(existingId);
+      if (existing) {
+        // Update status on existing element
+        existing.querySelector('.subagent-status').className = 'subagent-status ' + t.status;
+        existing.className = 'subagent-item' + (t.status === 'done' ? ' done' : '');
+        return;
+      }
+      const sub = document.createElement('div');
+      sub.className = 'subagent-item' + (t.status === 'done' ? ' done' : '');
+      sub.id = existingId;
+      sub.setAttribute('data-parent', sk);
+      sub.innerHTML = '<span class="subagent-status ' + t.status + '"></span>' + escapeHtml(t.label);
+      sub.addEventListener('click', () => {
+        wsSend({type: 'subagent_detail', task_id: t.id});
+        sidebar.classList.remove('open');
+        backdrop.classList.remove('visible');
+      });
+      sessionList.insertBefore(sub, insertBefore);
     });
   }
 
   function loadHistory(messages, key) {
     chatArea.innerHTML = '';
     sessionKey = key;
+    pendingMedia = [];
     localStorage.setItem('nb_session', key);
     if (messages && messages.length) {
       messages.forEach(m => appendMsg(m.role, m.content));
@@ -354,8 +537,9 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
     ws.onopen = () => {
       reconnectDelay = 1000;
       reconnectBanner.classList.remove('visible');
-      // Load current session history
+      // Load current session history and session list
       wsSend({type: 'session_switch', session_key: sessionKey});
+      wsSend({type: 'sessions_list'});
     };
 
     ws.onmessage = (e) => {
@@ -382,10 +566,52 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
           chatArea.innerHTML = '';
           sessionKey = msg.session_key;
           localStorage.setItem('nb_session', sessionKey);
+          pendingMedia = [];
+          loadSessions();
           break;
-        case 'upload_ok':
-          appendMsg('user', '[file: ' + msg.path + ']');
+        case 'session_deleted':
+          if (msg.session_key === sessionKey) {
+            wsSend({type: 'new_session'});
+          }
           break;
+        case 'upload_ok': {
+          pendingMedia.push(msg.path);
+          let tag = /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(msg.filename) ? 'image' : 'file';
+          inputBox.value = '[' + tag + ': ' + msg.path + '] ' + inputBox.value;
+          btnSend.disabled = !inputBox.value.trim();
+          autoGrow();
+          inputBox.focus();
+          break;
+        }
+        case 'subagents':
+          subagentCache[msg.session_key] = msg.tasks || [];
+          renderSubagentItems(msg.session_key);
+          break;
+        case 'subagent_detail': {
+          chatArea.innerHTML = '';
+          let hdr = document.createElement('div');
+          hdr.className = 'msg msg-bot';
+          hdr.innerHTML = '<strong>' + escapeHtml(msg.label || 'Subagent') + '</strong> &mdash; ' + escapeHtml(msg.status || '');
+          chatArea.appendChild(hdr);
+          if (msg.steps && msg.steps.length) {
+            msg.steps.forEach(function(step) {
+              if (step.type === 'thought') appendMsg('bot', step.content);
+              else if (step.type === 'tool') appendMsg('bot', 'Tool: ' + step.name + '(' + (step.args || '') + ')', 'tool_hint');
+              else if (step.type === 'result') appendMsg('bot', step.content, 'progress');
+            });
+          } else {
+            appendMsg('bot', 'No detailed steps available.');
+          }
+          break;
+        }
+        case 'subagent_update': {
+          if (!subagentCache[msg.session_key]) subagentCache[msg.session_key] = [];
+          let existing = subagentCache[msg.session_key].find(t => t.id === msg.task_id);
+          if (existing) { existing.status = msg.status; existing.label = msg.label; }
+          else subagentCache[msg.session_key].push({id: msg.task_id, label: msg.label, status: msg.status});
+          renderSubagentItems(msg.session_key);
+          break;
+        }
         case 'error':
           appendMsg('bot', 'Error: ' + msg.content);
           break;

@@ -368,8 +368,15 @@ def gateway(
         return response
     cron.on_job = on_cron_job
 
-    # Create channel manager
-    channels = ChannelManager(config, bus, session_manager=session_manager)
+    # Create channel manager (with subagent manager for web UI)
+    channels = ChannelManager(config, bus, session_manager=session_manager, subagent_manager=agent.subagents)
+
+    # Wire subagent state-change notifications to the web channel
+    web_channel = channels.get_channel("web")
+    if web_channel is not None:
+        def _on_subagent_state(session_key: str, task_id: str, label: str, status: str) -> None:
+            asyncio.ensure_future(web_channel.notify_subagent_update(session_key, task_id, label, status))
+        agent.subagents.set_on_state_change(_on_subagent_state)
 
     def _pick_heartbeat_target() -> tuple[str, str]:
         """Pick a routable channel/chat target for heartbeat-triggered messages."""
