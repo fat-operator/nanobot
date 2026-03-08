@@ -469,16 +469,19 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
         sessionKey = s.key;
         localStorage.setItem('nb_session', sessionKey);
         wsSend({type: 'session_switch', session_key: sessionKey});
+        wsSend({type: 'subagents', session_key: sessionKey});
         renderSessions(lastSessionsData);
         sidebar.classList.remove('open');
         backdrop.classList.remove('visible');
       });
       sessionList.appendChild(div);
-      // Render subagent tasks if cached (inserted right after parent div)
+      // Render subagent tasks from cache (no server request per session)
       renderSubagentItems(s.key);
-      // Request subagent list from server
-      wsSend({type: 'subagents', session_key: s.key});
     });
+    // Request subagent tasks only for the active session
+    if (sessionKey) {
+      wsSend({type: 'subagents', session_key: sessionKey});
+    }
   }
 
   // Subagent tasks cache: session_key -> [{id, label, status}]
