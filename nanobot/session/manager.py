@@ -112,6 +112,15 @@ class SessionManager:
         self._cache[key] = session
         return session
 
+    def get(self, key: str) -> Session | None:
+        """Get an existing session without creating one."""
+        if key in self._cache:
+            return self._cache[key]
+        session = self._load(key)
+        if session is not None:
+            self._cache[key] = session
+        return session
+
     def _load(self, key: str) -> Session | None:
         """Load a session from disk."""
         path = self._get_session_path(key)

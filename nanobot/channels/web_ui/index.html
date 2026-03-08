@@ -436,7 +436,7 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
   }
 
   function escapeHtml(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 
   // Sessions
@@ -537,6 +537,7 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:
     ws.onopen = () => {
       reconnectDelay = 1000;
       reconnectBanner.classList.remove('visible');
+      pendingMedia = [];
       // Load current session history and session list
       wsSend({type: 'session_switch', session_key: sessionKey});
       wsSend({type: 'sessions_list'});

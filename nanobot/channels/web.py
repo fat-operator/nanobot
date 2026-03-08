@@ -6,7 +6,8 @@ import asyncio
 import json
 import uuid
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
+from urllib.parse import unquote
 
 from loguru import logger
 
@@ -117,8 +118,7 @@ class WebChannel(BaseChannel):
 
         # GET /api/sessions/<key>/history
         if req_path.startswith("/api/sessions/") and req_path.endswith("/history"):
-            session_key = req_path[len("/api/sessions/"):-len("/history")]
-            session_key = session_key.replace("%3A", ":").replace("%3a", ":")
+            session_key = unquote(req_path[len("/api/sessions/"):-len("/history")])
             body = json.dumps(self._get_session_history(session_key)).encode()
             return _resp(200, "OK", body, "application/json")
 
@@ -156,26 +156,22 @@ class WebChannel(BaseChannel):
                     session_key = msg.get("session_key") or f"web:{chat_id}"
                     media = msg.get("media") or []
 
-                    # Move this client to the correct chat_id bucket
-                    if session_key != f"web:{chat_id}":
-                        # Clean old mapping
+                    # Move client to correct chat_id bucket (same pattern as session_switch)
+                    new_id = session_key.split(":", 1)[-1] if ":" in session_key else session_key
+                    if new_id != chat_id:
                         if chat_id in self._clients:
                             self._clients[chat_id].discard(websocket)
                             if not self._clients[chat_id]:
                                 del self._clients[chat_id]
-                        sk_id = session_key.split(":", 1)[-1] if ":" in session_key else session_key
-                        chat_id_actual = sk_id
-                    else:
-                        chat_id_actual = chat_id
-
-                    if chat_id_actual not in self._clients:
-                        self._clients[chat_id_actual] = set()
-                    self._clients[chat_id_actual].add(websocket)
+                        chat_id = new_id
+                        if chat_id not in self._clients:
+                            self._clients[chat_id] = set()
+                        self._clients[chat_id].add(websocket)
 
                     if content:
                         await self._handle_message(
                             sender_id="web_user",
-                            chat_id=chat_id_actual,
+                            chat_id=chat_id,
                             content=content,
                             media=media if media else None,
                             session_key=session_key,
@@ -228,8 +224,8 @@ class WebChannel(BaseChannel):
                         if self._subagent_manager:
                             try:
                                 await self._subagent_manager.cancel_by_session(del_key)
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logger.warning("Failed to cancel subagents for session {}: {}", del_key, e)
                         deleted = self._session_manager.delete(del_key)
                     await self._ws_send(websocket, {
                         "type": "session_deleted",
@@ -328,19 +324,6 @@ class WebChannel(BaseChannel):
         if dead and chat_id in self._clients:
             self._clients[chat_id] -= dead
 
-        # After a non-progress message, push updated sessions list so new
-        # sessions appear in the sidebar immediately.
-        if ws_type == "chat":
-            sessions_payload = json.dumps({
-                "type": "sessions_list",
-                "data": self._get_sessions_list(),
-            })
-            for ws in list(clients - dead):
-                try:
-                    await ws.send(sessions_payload)
-                except Exception:
-                    pass
-
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -357,7 +340,7 @@ class WebChannel(BaseChannel):
             return []
         all_sessions = self._session_manager.list_sessions()
         internal_prefixes = ("cron:", "heartbeat", "system:")
-        visible_channels = getattr(self.config, 'visible_channels', None)
+        visible_channels = self.config.visible_channels
         sessions = []
         for s in all_sessions:
             key = s.get("key", "")
@@ -371,9 +354,7 @@ class WebChannel(BaseChannel):
     def _get_session_history(self, session_key: str) -> list[dict[str, Any]]:
         if not self._session_manager:
             return []
-        session = self._session_manager._cache.get(session_key)
-        if session is None:
-            session = self._session_manager._load(session_key)
+        session = self._session_manager.get(session_key)
         if session is None:
             return []
         messages = []
