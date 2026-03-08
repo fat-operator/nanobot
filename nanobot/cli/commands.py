@@ -187,8 +187,7 @@ def onboard():
             save_config(config)
             console.print(f"[green]✓[/green] Config refreshed at {config_path} (existing values preserved)")
     else:
-        config = Config()
-        save_config(config)
+        save_config(Config())
         console.print(f"[green]✓[/green] Created config at {config_path}")
 
     # Create workspace
