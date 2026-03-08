@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content">
 <title>nanobot</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -40,10 +40,10 @@
   --drop-bg:rgba(218,119,86,.15);--banner-bg:#C4653E;
   --status-run:#E5A820;--status-done:#3DB874;--status-err:#E06B4A;
 }
-html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg)}
+html,body{height:100%;height:100dvh;font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg)}
 
 /* Layout */
-.app{display:flex;height:100vh;overflow:hidden}
+.app{display:flex;height:100vh;height:100dvh;overflow:hidden}
 .sidebar{
   width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--bg2);
   border-right:1px solid var(--border);display:flex;flex-direction:column;
