@@ -14,6 +14,7 @@ class Base(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
+<<<<<<< HEAD
 class WhatsAppConfig(Base):
     """WhatsApp channel configuration."""
 
@@ -223,7 +224,13 @@ class WebConfig(Base):
 
 
 class ChannelsConfig(Base):
-    """Configuration for chat channels."""
+    """Configuration for chat channels.
+
+    Built-in and plugin channel configs are stored as extra fields (dicts).
+    Each channel parses its own config in __init__.
+    """
+
+    model_config = ConfigDict(extra="allow")
 
     send_progress: bool = True  # stream agent's text progress to the channel
     send_tool_hints: bool = False  # stream tool-call hints (e.g. read_file("…"))
@@ -324,7 +331,9 @@ class GatewayConfig(Base):
 class WebSearchConfig(Base):
     """Web search tool configuration."""
 
-    api_key: str = ""  # Brave Search API key
+    provider: str = "brave"  # brave, tavily, duckduckgo, searxng, jina
+    api_key: str = ""
+    base_url: str = ""  # SearXNG base URL
     max_results: int = 5
 
 
@@ -354,7 +363,7 @@ class MCPServerConfig(Base):
     url: str = ""  # HTTP/SSE: endpoint URL
     headers: dict[str, str] = Field(default_factory=dict)  # HTTP/SSE: custom headers
     tool_timeout: int = 30  # seconds before a tool call is cancelled
-
+    enabled_tools: list[str] = Field(default_factory=lambda: ["*"])  # Only register these tools; accepts raw MCP names or wrapped mcp_<server>_<tool> names; ["*"] = all tools; [] = no tools
 
 class ToolsConfig(Base):
     """Tools configuration."""
