@@ -14,7 +14,6 @@ class Base(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
-<<<<<<< HEAD
 class WhatsAppConfig(Base):
     """WhatsApp channel configuration."""
 
