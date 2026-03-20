@@ -268,6 +268,7 @@ class AgentDefaults(Base):
     def should_warn_deprecated_memory_window(self) -> bool:
         """Return True when old memoryWindow is present without contextWindowTokens."""
         return self.memory_window is not None and "context_window_tokens" not in self.model_fields_set
+    reasoning_effort: str | None = None  # low / medium / high - enables LLM thinking mode
 
 
 class AgentsConfig(Base):
@@ -348,9 +349,9 @@ class WebToolsConfig(Base):
 class ExecToolConfig(Base):
     """Shell exec tool configuration."""
 
+    enable: bool = True
     timeout: int = 60
     path_append: str = ""
-
 
 class MCPServerConfig(Base):
     """MCP server connection configuration (stdio or HTTP)."""
