@@ -276,13 +276,10 @@ def onboard(
         set_config_path(config_path)
         console.print(f"[dim]Using config: {config_path}[/dim]")
     else:
-<<<<<<< HEAD
         config = Config()
         save_config(config)
-        console.print(f"[green]✓[/green] Created config at {config_path}")
-=======
         config_path = get_config_path()
->>>>>>> main
+        console.print(f"[green]✓[/green] Created config at {config_path}")
 
     def _apply_workspace_override(loaded: Config) -> Config:
         if workspace:
